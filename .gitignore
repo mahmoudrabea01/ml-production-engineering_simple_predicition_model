@@ -1,0 +1,26 @@
+# Virtual Environments
+.venv/
+
+# Environment Variables and Secrets
+.env
+.env.*
+
+# Allow the safe example configuration
+!.env.example
+
+# Python Cache Files
+__pycache__/
+*.py[cod]
+
+# Jupyter Temporary Files
+.ipynb_checkpoints/
+
+# Test and Tooling Caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Editor and operating system files
+.vscode/
+.DS_Store
+Thumbs.db
