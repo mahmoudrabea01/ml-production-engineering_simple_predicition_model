@@ -37,7 +37,8 @@ ml-production-project/
 │   ├── evaluation.py
 │   ├── model_service.py
 │   └── main.py
-├── models/
+├── model/
+│   └── breast_cancer_pipline.joblib
 ├── streamlit_app.py
 ├── run.py
 ├── .env.example
@@ -49,7 +50,7 @@ ml-production-project/
 
 ## Technologies
 
-- Python 3.12
+- Python 3.12.7
 - uv
 - pandas and NumPy
 - scikit-learn
@@ -62,15 +63,15 @@ ml-production-project/
 
 ### 1. Prerequisites
 
-Install Python 3.12, Git, and uv.
+Install Python 3.12.7, Git, and uv.
 
 ### 2. Clone the Repository
 
 Replace the repository URL with the URL of your GitHub repository.
 
 ```bash
-git clone https://github.com/<YOUR_USERNAME>/<REPO_NAME>.git
-cd <REPO_NAME>
+git clone https://github.com/mahmoudrabea01/ml-production-engineering_simple_predicition_model.git
+cd <ml-production-engineering_simple_predicition_model>
 ```
 
 ### 3. Install Dependencies
