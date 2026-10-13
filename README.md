@@ -93,7 +93,7 @@ The application settings include:
 | Variable | Description | Default |
 |---|---|---|
 | `APP_ENV` | Application environment | `development` |
-| `MODEL_PATH` | Saved model location | `models/breast_cancer_pipeline.joblib` |
+| `MODEL_PATH` | Saved model location | `model/breast_cancer_pipeline.joblib` |
 | `LOG_LEVEL` | Logging level | `INFO` |
 | `TEST_SIZE` | Test-set proportion | `0.2` |
 | `RANDOM_STATE` | Random seed | `42` |
