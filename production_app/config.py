@@ -44,7 +44,7 @@ def load_settings() -> Settings:
     model_path = Path(
         os.getenv(
             "MODEL_PATH",
-            "models/breast_cancer_pipeline.joblib",
+            "model/breast_cancer_pipeline.joblib",
         )
     )
 
