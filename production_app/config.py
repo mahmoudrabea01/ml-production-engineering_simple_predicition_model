@@ -16,7 +16,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 @dataclass(frozen=True)
 class Settings:
     app_env: str
-    model_path: str
+    model_path: Path
     log_level: str
     test_size: float
     random_state: int
@@ -30,7 +30,7 @@ def load_settings() -> Settings:
         random_state = int(os.getenv("RANDOM_STATE", "48"))
     except ValueError as exc:
         raise ValueError(
-            "TEST_SIZE must be a number." "RANDOM_STATE must be an integer."
+            "TEST_SIZE must be a number and RANDOM_STATE must be an integer."
         ) from exc
 
     if not 0 < test_size < 1:
