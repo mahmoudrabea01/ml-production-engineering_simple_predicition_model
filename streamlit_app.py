@@ -1,9 +1,8 @@
-import pandas as pd
+import requests
 import streamlit as st
 from sklearn.datasets import load_breast_cancer
 
-from production_app.config import load_settings
-from production_app.model_service import load_model
+API_URL = "http://127.0.0.1:8000/predict"
 
 st.set_page_config(
     page_title="Breast Cancer Classifier",
@@ -23,34 +22,17 @@ st.warning(
 )
 
 
-@st.cache_resource
-def get_model(model_path: str):
-    """Load and cache the saved model pipeline."""
-    return load_model(__import__("pathlib").Path(model_path))
-
-
 @st.cache_data
 def get_dataset():
     """Load feature names and default input values."""
     dataset = load_breast_cancer(as_frame=True)
-    X = dataset.data
-    defaults = X.median()
-    return list(X.columns), defaults, list(dataset.target_names)
+    features = dataset.data
+    defaults = features.median()
+
+    return list(features.columns), defaults
 
 
-settings = load_settings()
-feature_names, defaults, target_names = get_dataset()
-
-try:
-    model = get_model(str(settings.model_path.resolve()))
-except (OSError, ValueError, EOFError, TypeError) as exc:
-    st.error(
-        "Could not load the saved model. "
-        "Make sure the model file exists and is valid."
-    )
-    st.exception(exc)
-    st.stop()
-
+feature_names, defaults = get_dataset()
 
 st.subheader("Enter Feature Values")
 st.caption(
@@ -79,32 +61,62 @@ with st.form("prediction_form"):
 
 
 if submitted:
-    input_data = pd.DataFrame(
-        [values],
-        columns=feature_names,
-    )
+    # Convert feature names to the field names expected by Pydantic.
+    payload = {feature.replace(" ", "_"): value for feature, value in values.items()}
 
-    prediction = int(model.predict(input_data)[0])
-    probabilities = model.predict_proba(input_data)[0]
+    try:
+        response = requests.post(
+            API_URL,
+            json=payload,
+            timeout=10,
+        )
 
-    st.subheader("Prediction Result")
-    st.success(f"Predicted class: {target_names[prediction]}")
+        if response.status_code == 200:
+            result = response.json()
 
-    probability_columns = st.columns(len(model.classes_))
+            predicted_class = result["predicted_class"]
+            predicted_label = result["predicted_label"]
 
-    for column, class_id, probability in zip(
-        probability_columns,
-        model.classes_,
-        probabilities,
-    ):
-        with column:
-            class_name = target_names[int(class_id)]
-            st.metric(
-                label=f"{class_name.title()} probability",
-                value=f"{probability:.2%}",
+            st.subheader("Prediction Result")
+            st.success(
+                f"Predicted class: {predicted_label.title()} " f"({predicted_class})"
             )
 
-    st.caption("Probabilities are model outputs, not medical certainty.")
+            st.caption(
+                "This is an educational model prediction, " "not a medical diagnosis."
+            )
+
+        elif response.status_code == 422:
+            st.error(
+                "The submitted features were rejected by the API. "
+                "Please check the input data."
+            )
+
+        elif response.status_code == 503:
+            st.error(
+                "The prediction service is currently unavailable. "
+                "Please ensure the saved model is loaded."
+            )
+
+        else:
+            st.error(
+                f"The prediction request failed "
+                f"with status code {response.status_code}."
+            )
+
+    except requests.exceptions.Timeout:
+        st.error("The API request timed out. " "Please try again.")
+
+    except requests.exceptions.ConnectionError:
+        st.error(
+            "Could not connect to the prediction API. "
+            "Make sure the FastAPI server is running."
+        )
+
+    except (requests.exceptions.RequestException, ValueError, KeyError):
+        st.error(
+            "An unexpected response was received from the API. " "Please try again."
+        )
 
 
 # import streamlit as st

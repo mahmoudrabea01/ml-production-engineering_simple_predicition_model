@@ -1,24 +1,30 @@
+
 # Breast Cancer Classification — ML Production Engineering
 
 ## Project Overview
 
-This project demonstrates how to organize a machine learning workflow into a reusable Python application.
+This project demonstrates how to structure a machine learning workflow into a reusable Python application and expose a trained model through a validated REST API.
 
-The project uses the Breast Cancer Wisconsin dataset and a Logistic Regression classifier. It covers data preparation, model training, evaluation, model persistence, and prediction through a command-line application and a Streamlit web interface.
+The project uses the Breast Cancer Wisconsin dataset and a Logistic Regression classifier. It covers data preparation, preprocessing, model training, evaluation, model persistence, API development, input validation, logging, and an interactive Streamlit frontend.
+
+The fitted scikit-learn pipeline is saved and reused for predictions. The API does not retrain the model when a prediction request is received.
 
 **Disclaimer:** This project is for educational purposes only. It is not a medical diagnostic tool.
 
 ## Features
 
 - Load and inspect the Breast Cancer Wisconsin dataset.
-- Split the data into training and testing sets.
-- Build a preprocessing and classification pipeline using `RobustScaler` and `LogisticRegression`.
+- Split data into training and testing sets.
+- Build a machine learning pipeline using `RobustScaler` and `LogisticRegression`.
 - Train and evaluate the model.
 - Save and load the fitted pipeline using `joblib`.
-- Generate predictions and class probabilities.
+- Generate predictions using the saved model.
 - Configure application settings through environment variables.
-- Use logging and exception handling.
-- Provide an interactive web interface using Streamlit.
+- Use structured logging and exception handling.
+- Expose predictions through a REST API built with FastAPI.
+- Validate prediction requests using Pydantic.
+- Provide a health endpoint to report model availability.
+- Provide an interactive Streamlit frontend that communicates with the API.
 - Apply code-quality checks using Ruff, Black, and pre-commit.
 
 ## Project Structure
@@ -29,14 +35,16 @@ ml-production-project/
 │   └── 01_exploration.ipynb
 ├── production_app/
 │   ├── __init__.py
+│   ├── api.py
 │   ├── config.py
-│   ├── logging_config.py
 │   ├── data.py
-│   ├── preprocessing.py
-│   ├── training.py
 │   ├── evaluation.py
+│   ├── logging_config.py
+│   ├── main.py
 │   ├── model_service.py
-│   └── main.py
+│   ├── preprocessing.py
+│   ├── schemas.py
+│   └── training.py
 ├── model/
 │   └── breast_cancer_pipeline.joblib
 ├── streamlit_app.py
@@ -56,6 +64,10 @@ ml-production-project/
 - pandas and NumPy
 - scikit-learn
 - joblib
+- FastAPI
+- Pydantic
+- Uvicorn
+- Requests
 - Streamlit
 - python-dotenv
 - Ruff
@@ -77,8 +89,10 @@ cd ml-production-engineering_simple_predicition_model
 
 ### 3. Install Dependencies
 
+Install the project dependencies using the committed lockfile:
+
 ```bash
-uv sync
+uv sync --locked
 ```
 
 ### 4. Configure Environment Variables
@@ -99,15 +113,17 @@ The application settings include:
 | `TEST_SIZE` | Test-set proportion | `0.2` |
 | `RANDOM_STATE` | Random seed | `42` |
 
+Keep `.env` local and do not commit secrets or environment-specific configuration.
+
 ### 5. Train and Evaluate the Model
 
-Run the training workflow:
+If the saved model artifact does not exist, run the training workflow:
 
 ```bash
 uv run python run.py
 ```
 
-This command loads the dataset, splits it into training and testing sets, trains the pipeline, evaluates its performance, and saves the fitted pipeline to the configured model path.
+This command loads the dataset, prepares the features and target, splits the data, trains and evaluates the pipeline, and saves the fitted model to the configured path.
 
 The default model path is:
 
@@ -115,11 +131,52 @@ The default model path is:
 model/breast_cancer_pipeline.joblib
 ```
 
-Training is separate from making predictions through the Streamlit interface.
+Training and prediction are separate operations. The API loads the saved model rather than training a new model for each request.
 
-### 6. Launch the Streamlit Interface
+## Running the Application
 
-After a trained model has been saved, start the web application:
+The application consists of a FastAPI backend and a Streamlit frontend. Run them in two separate terminals from the project root.
+
+### 1. Start the FastAPI Server
+
+In the first terminal, run:
+
+```bash
+uv run uvicorn production_app.api:app --reload
+```
+
+The API will usually be available at:
+
+http://127.0.0.1:8000
+
+### 2. Check API Health
+
+Open the health endpoint:
+
+http://127.0.0.1:8000/health
+
+When the model is loaded successfully, the endpoint returns a response similar to:
+
+```json
+{
+  "status": "healthy",
+  "model_loaded": true
+}
+```
+
+If the model cannot be loaded, the endpoint returns HTTP `503 Service Unavailable`.
+
+### 3. Explore the API Documentation
+
+Open the interactive Swagger UI:
+
+http://127.0.0.1:8000/docs
+
+Use this page to inspect the available endpoints, submit prediction requests, and review their responses.
+
+### 4. Start the Streamlit Frontend
+
+In a second terminal, run:
 
 ```bash
 uv run streamlit run streamlit_app.py
@@ -129,11 +186,48 @@ Open the local URL displayed in the terminal, usually:
 
 http://localhost:8501
 
-The interface loads the previously saved model and uses it to generate predictions and class probabilities. It does not retrain the model when a prediction is requested.
+Enter the feature values and submit the form. Streamlit sends the input data to the FastAPI prediction endpoint and displays the returned class and label.
 
-The default input values are based on feature medians from the example dataset. They are provided for demonstration and do not represent an actual patient's measurements.
+The frontend requires the API server to be running.
 
-If the saved model does not exist, run the training workflow first.
+## API Endpoints
+
+### `GET /health`
+
+Reports whether the API can access the loaded prediction model.
+
+- **HTTP 200:** The model is available.
+- **HTTP 503:** The model could not be loaded, so prediction service is unavailable.
+
+### `POST /predict`
+
+Accepts one observation containing all 30 features expected by the trained pipeline.
+
+The request body uses JSON, with feature names represented in `snake_case`, such as `mean_radius` and `mean_texture`.
+
+Pydantic validates the input before the prediction function is called. Missing fields, invalid values, and unexpected extra fields are rejected.
+
+A successful response has the following structure:
+
+```json
+{
+  "predicted_class": 1,
+  "predicted_label": "benign"
+}
+```
+
+The predicted class is `0` for malignant or `1` for benign. These labels describe the model's output for this educational dataset; they are not a medical diagnosis.
+
+### Error Handling
+
+| HTTP status | Meaning |
+|---|---|
+| `200` | Request processed successfully |
+| `422` | Request validation failed |
+| `500` | Prediction could not be completed |
+| `503` | Prediction model is unavailable |
+
+Error responses provide a client-facing message. Internal model-loading details and diagnostic logs should remain on the server.
 
 ## Model Workflow
 
@@ -149,11 +243,16 @@ If the saved model does not exist, run the training workflow first.
 
 ### Prediction Workflow
 
-1. Load the previously saved pipeline.
-2. Receive feature values through the Streamlit interface.
-3. Generate a prediction and class probabilities using the loaded pipeline.
+1. The API loads the saved pipeline when the application starts.
+2. The client submits feature values as a JSON request.
+3. Pydantic validates the request.
+4. The validated values are converted into a DataFrame with the expected feature names and order.
+5. The existing fitted pipeline generates a prediction.
+6. The API returns the predicted class and readable label as JSON.
 
-Using a pipeline keeps preprocessing and classification together and helps ensure consistent transformations during training and prediction. Fitting preprocessing on the training data helps prevent data leakage.
+The Streamlit frontend communicates with the API rather than loading the prediction model directly. This separation keeps the prediction logic in the backend and provides a clear interface between the frontend and model service.
+
+Using a fitted pipeline keeps preprocessing and classification together. Fitting preprocessing only on training data also helps prevent data leakage.
 
 ## Model Evaluation
 
@@ -210,6 +309,8 @@ uv run pre-commit install
 ## Notes
 
 - Do not commit your local `.env` file or virtual environment.
-- Run the training workflow before launching Streamlit if the saved model does not exist.
+- Train the model before starting the API if the saved model artifact does not exist.
 - The saved model path can be customized using `MODEL_PATH`.
+- Start the FastAPI server before using the Streamlit frontend.
+- The API expects all 30 features used by the existing fitted pipeline.
 - This project demonstrates machine learning application structure and production-oriented practices. It is not intended for clinical use.
