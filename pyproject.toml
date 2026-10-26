@@ -19,8 +19,10 @@ dependencies = [
 [dependency-groups]
 dev = [
     "black>=26.10.1",
+    "httpx>=0.28.1",
     "jupyter>=1.1.1",
     "matplotlib>=3.11.2",
     "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
     "ruff>=0.17.0",
 ]

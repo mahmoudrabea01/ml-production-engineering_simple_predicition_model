@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 
+from production_app.feature_selection import select_features
 from production_app.preprocessing import build_preprocessor
 
 logger = log.getLogger(__name__)
@@ -23,14 +24,29 @@ def build_model() -> Pipeline:
 def train_model(
     X_train: pd.DataFrame,
     y_train: pd.Series,
-) -> Pipeline:
-    """Fit the pipeline using training data."""
+    random_state: int = 48,
+) -> tuple[Pipeline, list[str]]:
+    """Select features and train the final classification model."""
 
-    logger.info("Starting model training")
+    logger.info("Starting feature selection")
+
+    selected_features = select_features(
+        X_train,
+        y_train,
+        random_state=random_state,
+    )
+
+    # Train only on selected features.
+    X_train_scaled = X_train.loc[:, selected_features]
+
+    logger.info(
+        "Training model using %d selected features",
+        len(selected_features),
+    )
 
     model = build_model()
-    model.fit(X_train, y_train)
+    model.fit(X_train_scaled, y_train)
 
     logger.info("Model training completed")
 
-    return model
+    return model, selected_features

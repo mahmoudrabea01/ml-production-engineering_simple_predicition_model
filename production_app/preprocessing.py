@@ -1,6 +1,6 @@
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import MinMaxScaler
 
 
-def build_preprocessor() -> RobustScaler:
-    """Create the feature scaling step."""
-    return RobustScaler()
+def build_preprocessor() -> MinMaxScaler:
+    """Create the MinMax feature scaling step."""
+    return MinMaxScaler()

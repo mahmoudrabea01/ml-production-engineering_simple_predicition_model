@@ -5,7 +5,11 @@ from fastapi import FastAPI, HTTPException
 from production_app.config import load_settings
 from production_app.logging_config import setup_logging
 from production_app.model_service import load_model, predict
-from production_app.schemas import PredictionRequest, PredictionResponse
+from production_app.schemas import (
+    FEATURE_NAMES,
+    PredictionRequest,
+    PredictionResponse,
+)
 
 logger = log.getLogger(__name__)
 
@@ -20,9 +24,18 @@ setup_logging(settings.log_level)
 
 
 model = None
+selected_features = None
 
 try:
-    model = load_model(settings.model_path)
+    # Load the fitted model and its selected feature names.
+    model, selected_features = load_model(settings.model_path)
+
+    # Verify that the API schema matches the saved model.
+    if selected_features != FEATURE_NAMES:
+        logger.error("API feature schema does not match the saved model.")
+        model = None
+        selected_features = None
+
 except Exception:
     logger.exception("Failed to load the saved model")
 
@@ -51,7 +64,10 @@ def prediction_endpoint(request: PredictionRequest) -> dict:
         )
 
     try:
+        # Convert validated JSON into ordered model features.
         features = request.to_dataframe()
+
+        # Generate prediction without retraining.
         prediction = predict(model, features)
 
     except (ValueError, TypeError):

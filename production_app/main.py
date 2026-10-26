@@ -27,20 +27,35 @@ def main() -> None:
         random_state=settings.random_state,
     )
 
-    model = train_model(X_train, y_train)
+    # Select features and train the final model.
+    model, selected_features = train_model(
+        X_train,
+        y_train,
+        random_state=settings.random_state,
+    )
+
+    # Keep the same selected feature names and order.
+    X_test_selected = X_test.loc[:, selected_features]
 
     results = evaluation_model(
         model=model,
-        X_test=X_test,
+        X_test=X_test_selected,
         y_test=y_test,
     )
 
+    logger.info("Selected features: %s", selected_features)
+    logger.info("Feature count: %d", len(selected_features))
     logger.info("Test accuracy: %.4f", results["accuracy"])
     logger.info("Confusion matrix: %s", results["confusion_matrix"])
 
-    print("Model save path:", settings.model_path.resolve())
-    save_model(model, settings.model_path)
+    # Save the fitted model and its selected feature names.
+    save_model(
+        model,
+        settings.model_path,
+        selected_features=selected_features,
+    )
 
+    logger.info("Model saved to: %s", settings.model_path)
     logger.info("Application completed successfully")
 
 
@@ -52,11 +67,11 @@ def predict_main() -> None:
     logger.info("Starting CLI prediction")
 
     # Load the existing trained pipeline.
-    model = load_model(settings.model_path)
+    model, selected_features = load_model(settings.model_path)
 
-    # Prepare one sample with the original feature names.
+    # Prepare a sample using only the selected features.
     X, _ = load_data()
-    sample = X.iloc[[0]]
+    sample = X.iloc[[0]].loc[:, selected_features]
 
     # Generate a prediction using the saved model.
     prediction = predict(model, sample)
