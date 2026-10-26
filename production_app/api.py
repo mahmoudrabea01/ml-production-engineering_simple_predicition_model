@@ -5,7 +5,7 @@ from fastapi import FastAPI, HTTPException
 from production_app.config import load_settings
 from production_app.logging_config import setup_logging
 from production_app.model_service import load_model, predict
-from production_app.schemas import PredictionRequest
+from production_app.schemas import PredictionRequest, PredictionResponse
 
 logger = log.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def health_check() -> dict:
     return {"status": "healthy", "model_loaded": True}
 
 
-@app.post("/predict")
+@app.post("/predict", response_model=PredictionResponse)
 def prediction_endpoint(request: PredictionRequest) -> dict:
     """Predict the class for one validated observation."""
 
