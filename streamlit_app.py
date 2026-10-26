@@ -1,8 +1,21 @@
+import os
+
 import requests
 import streamlit as st
 from sklearn.datasets import load_breast_cancer
 
-API_URL = "http://127.0.0.1:8000/predict"
+# Configurable FastAPI prediction endpoint.
+API_URL = os.getenv(
+    "API_URL",
+    "http://127.0.0.1:8000/predict",
+)
+
+# Must match the saved model and FastAPI schema.
+FEATURE_NAMES = [
+    "mean concave points",
+    "worst radius",
+    "worst concave points",
+]
 
 st.set_page_config(
     page_title="Breast Cancer Classifier",
@@ -11,9 +24,10 @@ st.set_page_config(
 )
 
 st.title("Breast Cancer Classification")
+
 st.write(
-    "A machine learning demonstration using "
-    "Logistic Regression and a saved preprocessing pipeline."
+    "A machine learning demonstration using Embedded Feature "
+    "Selection, MinMaxScaler, Logistic Regression, and FastAPI."
 )
 
 st.warning(
@@ -23,31 +37,34 @@ st.warning(
 
 
 @st.cache_data
-def get_dataset():
-    """Load feature names and default input values."""
+def get_default_values() -> dict[str, float]:
+    """Get example input values for selected features."""
     dataset = load_breast_cancer(as_frame=True)
-    features = dataset.data
-    defaults = features.median()
 
-    return list(features.columns), defaults
+    defaults = dataset.data[FEATURE_NAMES].median()
+
+    return defaults.to_dict()
 
 
-feature_names, defaults = get_dataset()
+defaults = get_default_values()
 
 st.subheader("Enter Feature Values")
+
 st.caption(
-    "The default values are feature medians from the example dataset. "
-    "Change them to explore different predictions."
+    "This model uses 3 selected features out of the original 30. "
+    "The default values are dataset medians for demonstration."
 )
 
 with st.form("prediction_form"):
     values = {}
+
     columns = st.columns(3)
 
-    for index, feature in enumerate(feature_names):
+    for index, feature in enumerate(FEATURE_NAMES):
         with columns[index % 3]:
             values[feature] = st.number_input(
-                label=feature,
+                label=feature.title(),
+                min_value=0.0,
                 value=float(defaults[feature]),
                 format="%.4f",
                 key=feature,
@@ -61,7 +78,7 @@ with st.form("prediction_form"):
 
 
 if submitted:
-    # Convert feature names to the field names expected by Pydantic.
+    # Convert sklearn feature names into Pydantic field names.
     payload = {feature.replace(" ", "_"): value for feature, value in values.items()}
 
     try:
@@ -78,51 +95,37 @@ if submitted:
             predicted_label = result["predicted_label"]
 
             st.subheader("Prediction Result")
+
             st.success(
                 f"Predicted class: {predicted_label.title()} " f"({predicted_class})"
             )
 
-            st.caption(
-                "This is an educational model prediction, " "not a medical diagnosis."
-            )
+            st.caption("This prediction is for educational purposes only.")
 
         elif response.status_code == 422:
             st.error(
-                "The submitted features were rejected by the API. "
-                "Please check the input data."
+                "The API rejected the submitted features. "
+                "Please check the input values."
             )
 
         elif response.status_code == 503:
             st.error(
-                "The prediction service is currently unavailable. "
-                "Please ensure the saved model is loaded."
+                "The prediction service is unavailable. "
+                "Please verify that FastAPI loaded the saved model."
             )
 
         else:
             st.error(
-                f"The prediction request failed "
-                f"with status code {response.status_code}."
+                f"Prediction request failed. " f"HTTP status: {response.status_code}"
             )
 
     except requests.exceptions.Timeout:
-        st.error("The API request timed out. " "Please try again.")
+        st.error("The prediction request timed out. " "Please try again.")
 
     except requests.exceptions.ConnectionError:
         st.error(
-            "Could not connect to the prediction API. "
-            "Make sure the FastAPI server is running."
+            "Could not connect to FastAPI. " "Make sure the API server is running."
         )
 
     except (requests.exceptions.RequestException, ValueError, KeyError):
-        st.error(
-            "An unexpected response was received from the API. " "Please try again."
-        )
-
-
-# import streamlit as st
-
-# st.set_page_config(page_title="Test App")
-
-# st.title("My ML Project")
-# st.write("Streamlit is working!")
-# st.success("The page is rendering correctly.")
+        st.error("An unexpected error occurred while processing " "the API response.")

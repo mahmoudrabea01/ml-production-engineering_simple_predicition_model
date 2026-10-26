@@ -1,0 +1,47 @@
+
+# Python virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Git
+.git/
+.gitignore
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+notebooks/
+
+# Local development files
+.vscode/
+.idea/
+
+# Test reports and coverage
+.coverage
+htmlcov/
+.coverage.*
+
+# Documentation and temporary files
+*.log
+*.tmp
+
+# Streamlit frontend is not included in the API image
+streamlit_app.py
+
+# Local tests are not needed in the runtime image
+tests/
+
+# Documentation
+README.md
